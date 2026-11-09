@@ -1,0 +1,10 @@
+^C:\USERS\APEX\DESKTOP\RESEARCH1\EDUCATIONAL PURPOSE -OFFSETS-MAIN\SAMPLE_DLL\BUILD\CMAKEFILES\9D3F4DCAE86DB53F412480D2B1CBAB05\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" "-SC:/Users/apex/Desktop/research1/Educational Purpose -OFFSETS-main/sample_dll" "-BC:/Users/apex/Desktop/research1/Educational Purpose -OFFSETS-main/sample_dll/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "C:/Users/apex/Desktop/research1/Educational Purpose -OFFSETS-main/sample_dll/build/sample_dll.slnx"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

@@ -1,0 +1,10 @@
+^C:\USERS\APEX\DESKTOP\RESEARCH1\EDUCATIONAL PURPOSE -OFFSETS-MAIN\SAMPLE_DLL\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" "-SC:/Users/apex/Desktop/research1/Educational Purpose -OFFSETS-main/sample_dll" "-BC:/Users/apex/Desktop/research1/Educational Purpose -OFFSETS-main/sample_dll/build" --check-stamp-file "C:/Users/apex/Desktop/research1/Educational Purpose -OFFSETS-main/sample_dll/build/CMakeFiles/generate.stamp"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
