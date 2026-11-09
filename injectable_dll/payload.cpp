@@ -14,6 +14,9 @@
 #include <cstdint>
 #include <atomic>
 
+// timeBeginPeriod / timeEndPeriod
+#pragma comment(lib, "winmm.lib")
+
 // ============================================================================
 // Offsets  (Build 14196 — 2026-11-05)
 // ============================================================================
@@ -381,6 +384,15 @@ cleanup:
 
 static DWORD WINAPI FeatureThreadProc(LPVOID /*p*/)
 {
+    // ---------------------------------------------------------------
+    // FIX 1:  Force the system timer to 1 ms resolution.
+    //
+    // Without this, Sleep(1) actually sleeps ~15.6 ms (the default
+    // Windows scheduler quantum).  That means we poll at ~64 Hz —
+    // far too slow to catch every landing frame at 128-tick.
+    // ---------------------------------------------------------------
+    timeBeginPeriod(1);
+
     // Wait for client.dll
     while (g_Running.load(std::memory_order_relaxed))
     {
@@ -391,11 +403,25 @@ static DWORD WINAPI FeatureThreadProc(LPVOID /*p*/)
     printf("[init] client.dll @ 0x%llX\n",
            static_cast<unsigned long long>(g_ClientBase));
 
+    // ---------------------------------------------------------------
+    // FIX 2:  State-based instead of press-sleep-release.
+    //
+    // Old code:  ForceButton(true) → Sleep(1) → ForceButton(false)
+    //   Problem: the ~15 ms gap meant the game often never saw the
+    //   press, or saw it on the wrong tick.  The release could land
+    //   before the game even sampled the button.
+    //
+    // New code:  Every iteration, set the button to match the ground
+    //   state.  On ground → button stays pressed.  Airborne → button
+    //   stays released.  The game's own tick naturally picks up the
+    //   transition — zero timing dependency on our side.
+    // ---------------------------------------------------------------
     while (g_Running.load(std::memory_order_relaxed))
     {
-        // Only process when the feature is enabled AND space is held
-        if (g_JumpEnabled.load(std::memory_order_relaxed) &&
-            (GetAsyncKeyState(VK_SPACE) & 0x8000))
+        bool featureActive = g_JumpEnabled.load(std::memory_order_relaxed) &&
+                             (GetAsyncKeyState(VK_SPACE) & 0x8000);
+
+        if (featureActive)
         {
             uintptr_t pawn = 0;
             if (Mem<uintptr_t>(g_ClientBase + offsets::dwLocalPlayerPawn, pawn) && pawn)
@@ -403,18 +429,29 @@ static DWORD WINAPI FeatureThreadProc(LPVOID /*p*/)
                 uint32_t flags = 0;
                 if (Mem<uint32_t>(pawn + offsets::m_fFlags, flags))
                 {
-                    if (flags & FL_ONGROUND)
-                    {
-                        ForceButton(g_ClientBase, offsets::jump, true);
-                        Sleep(1);
-                        ForceButton(g_ClientBase, offsets::jump, false);
-                    }
+                    // Ground → press, airborne → release.
+                    // The game reads this on its next tick and acts on the
+                    // transition from released→pressed as a single +jump.
+                    ForceButton(g_ClientBase, offsets::jump,
+                                (flags & FL_ONGROUND) != 0);
                 }
             }
         }
+        else
+        {
+            // Feature off or space released — ensure the button is cleared
+            // so the game doesn't see a stuck +jump.
+            if (g_ClientBase)
+                ForceButton(g_ClientBase, offsets::jump, false);
+        }
 
-        Sleep(1);
+        Sleep(1); // now truly ~1 ms thanks to timeBeginPeriod(1)
     }
+
+    // Cleanup: release the button and restore timer resolution
+    if (g_ClientBase)
+        ForceButton(g_ClientBase, offsets::jump, false);
+    timeEndPeriod(1);
 
     return 0;
 }

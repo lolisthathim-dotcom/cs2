@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(payload SHARED payload.cpp)
 
 # Link against user32 for MessageBoxA (used by the hook target)
-target_link_libraries(payload PRIVATE user32)
+target_link_libraries(payload PRIVATE user32 winmm)
 
 # Strip the "lib" prefix — output is payload.dll
 set_target_properties(payload PROPERTIES PREFIX "")
